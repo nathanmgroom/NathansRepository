@@ -1,0 +1,31 @@
+---
+title: "R Quiz Week 5"
+author: "Nathan Groom"
+date: "July 2, 2014"
+output: html_document
+---
+
+1.
+
+```{r}
+(A <- matrix(c(1,-1,-1,-1), nrow = 2, ncol =2))
+(B<- matrix(c(2,3,-1,-2), nrow=2, ncol=2))
+(C <- matrix (c(1,0,0,0), nrow=2, ncol=2))
+(D <- matrix(c(0,1,0,1,0,0,0,0,1), nrow= 3, ncol=3))
+```
+
+2.
+An idempotent matrix is a matrix that, when multiplied by itself, returns the same matrix. In this case, matrices C, D and E are idempotent because $1*1=1$ and $0*0=0$
+
+3.
+We can prove a matrix is orthogonal if each of the column vectors multiplied by each of the other column vectors are equal to 0
+For example, A is orthogonal because there are only 2 column vectors:
+$(1*-1)+(-1*-1) = 1 + (-1) = 0$; that means it’s orthogonal.
+It turns out this is the case for matrices A, C, D and E; all of the matrices that are only made up of 1s, 0s, and -1s.
+
+4.
+```{r}
+(bigList <- list(A, myArray, theDF, x))
+
+
+```
