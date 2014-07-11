@@ -1,3 +1,4 @@
+#from here: http://en.wikipedia.org/wiki/Barcelona
 require(XML)
 Loading required package: XML
 myURL <- "http://en.wikipedia.org/wiki/Barcelona"
