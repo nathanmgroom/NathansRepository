@@ -1,0 +1,45 @@
+---
+title: "RQuizWeek8"
+author: "Nathan Groom"
+date: "July 22, 2014"
+output: html_document
+---
+
+Part 1: 
+
+```{r}
+vec1 <- c(8,3,5,6,9)
+vec2<-c(9,2,4,1,5)
+for(i in 1:5){
+    
+    (print(vec1[i]+vec2[i]))
+}
+
+```
+
+The above way of adding vectors should usually be avoided because it takes so much longer than standard vector addition. It doesn't matter with small vectors like the ones above but with much longer vectors it takes a long time.
+
+
+Part 2: Code that uses a while loop to count how many heads occur before the first instance of tails in a vector:
+
+
+```{r}
+coinvec2 <- (c("h","h","h","t"))
+counter2<-1
+while((coinvec2[counter2])=="h"){
+  print(counter2)
+  counter2<-(counter2+1)
+}
+```
+
+Part 3: 
+This code goes through a vector of 100 numbers and if the number is odd, adds the number to the "counter variable", and if the number is even, it does nothing. Eventually it sums up all the odd numbers between 1 and 99.
+
+```{r}
+vec100<-(c(1:100))
+counter100<-0
+for(i in vec100){
+ ifelse(i%%2==1,counter100<-(counter100+i),"even")
+ print(counter100)
+}
+```
