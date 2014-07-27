@@ -1,0 +1,43 @@
+---
+title: "RAssignmentWeek8"
+author: "Nathan Groom"
+date: "July 23, 2014"
+output: html_document
+---
+first step is this:
+```{r}
+x<-rbinom(100,1,.5)
+```
+Here's the code that loops through just once:
+
+```{r}
+
+x<-rbinom(100,1,.5)
+lengthcounter<-0
+stringcounter<-0
+while(stringcounter < 7 & lengthcounter < length(x)){
+    ifelse(x[lengthcounter]==x[lengthcounter+1],stringcounter<-stringcounter+1,stringcounter<-1)
+    lengthcounter<-lengthcounter+1
+}
+ifelse(stringcounter>=7,print("True"),print("False"))
+
+```
+
+Here's that code embedded in a loop; as you can see, it loops 10 times here but can be adjusted to any number
+
+```{r}
+counter<-0
+while(counter<10){
+lengthcounter<-0
+stringcounter<-0
+while(stringcounter < 7 & lengthcounter < length(x)){
+    ifelse(x[lengthcounter]==x[lengthcounter+1],stringcounter<-stringcounter+1,stringcounter<-1)
+    lengthcounter<-lengthcounter+1
+}
+ifelse(stringcounter>=7,print("True"),print("False"))
+x<-rbinom(100,1,.5)
+counter<-counter+1
+}
+```
+
+The most I tried to run the loop was 100,000 times, and it accomplished this in a time of 2:08. However, the machine I'm using (a 2011 Macbook Pro) did start heating up and I could hear the fan working overtime to cool down the CPU.
