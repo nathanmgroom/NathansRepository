@@ -1,0 +1,150 @@
+---
+title: "Dataset Project"
+author: "Nathan Groom"
+date: "September 29, 2014"
+output: html_document
+---
+
+I'm using a dataset I found on data.gov, profiling over 800 different occupations and the level of education required to be hired in those occupations, along with data on the average salary and projectd job growth for each subset of educational attainment. The data originally came in an Excel sheet with multiple tabs. I extracted the data I found most useful into separate CSV files in order to more easily import and analyze the data in R. 
+Upon initial inspection of the data, a couple things stood out to me. First of all, as expected, the more education a job requires for entry, the higher the median salary. The exception to this is that the median salary of jobs that require a "high school diploma or equivalent" is, at $35,170, higher than either "Some college, no degree" ($28,730) or "Postsecondary non-degree award" ($34,750). The average salary for an associate's degree level job, on the other hand, is $57,590, which is a large jump of over $20,000, or about a 64% increase from jobs that only require a high school diploma. A bachelor's degree level job's salary rises another $10,000 to a median of $67,140, which is about 17% higher than an associate's degree and 91% higher than those with only a high school diploma. The message here seems to be if you're going to start college, you'd better finish because if you don't get a degree, your earning potential is even lower than if you hadn't started at all. Couple this with the fact that going to post-secondary school costs money even if you don't finish, and it's even a stronger incentive to finish college and get a degree.
+Similarly, according to this dataset, the median salary for jobs only requiring a bachelor's degree ($67,140) is higher than the median salary for jobs requiring a master's degree ($63,400). This is almost a 6% decrease in wages, which doesn't sound like a very strong incentive to get a master's degree.
+One reason this could be the case is that there might be more jobs requiring extensive job experience in the "bachelor's degree only" category. In other words, employees paid their dues with job experience rather than education and are making more because of it. Luckily, this dataset has a tab profiling over 800 jobs, how much education is typically needed to get a job in that field, and how much work experience is needed for that same job. We can use dplyr to figure this out. 
+
+```{r}
+(require(dplyr))
+salary<-read.csv("/users/nathangroom/desktop/salary.csv")
+assignment<-read.csv("/users/nathangroom/desktop/educationassignment.csv")
+attainment<-read.csv("/users/nathangroom/desktop/educationattainment.csv")
+
+(head(assignment))
+#How many jobs require both a bachelor's degree (only) and over 5 years of job experience for entry?
+(nrow((filter(assignment, Typical.education.needed.for.entry=="Bachelor's degree" & Work.experience.in.a.related.occupation=="5 years or more"))))
+#And the answer is 16
+#Let's do the same thing for jobs that need only a bachelor's degree and less than 5 years of experience:
+(nrow((filter(assignment, Typical.education.needed.for.entry=="Bachelor's degree" & Work.experience.in.a.related.occupation=="Less than 5 years"))))
+#The answer is 24
+#Finally, how many jobs require a bachelor's degree only and no previous experience?
+(nrow((filter(assignment, Typical.education.needed.for.entry=="Bachelor's degree" & Work.experience.in.a.related.occupation=="None"))))
+#It's a whopping 126. With 166 total "Bachelor's Degree Only" jobs, 76% need no experience, 14% need less than 5 years' experience and only 10% need 5 years or more experience.
+#Now we can do the same exercise, replacing bachelor's degree jobs with jobs that require a master's to see the experience needed for those jobs.
+(nrow((filter(assignment, Typical.education.needed.for.entry=="Master's degree" & Work.experience.in.a.related.occupation=="5 years or more"))))
+(nrow((filter(assignment, Typical.education.needed.for.entry=="Master's degree" & Work.experience.in.a.related.occupation=="Less than 5 years"))))
+(nrow((filter(assignment, Typical.education.needed.for.entry=="Master's degree" & Work.experience.in.a.related.occupation=="None"))))
+#Here we can see that for the jobs that require only a Master's degree, the number of jobs that require 5 years or more, less than 5 years, and no experience are 3, 1 and 35, respectively. This corresponds to 8%, 3% and 90%.
+```
+
+If we look at the data, we can see that a higher percentage of jobs that require a Master's degree don't need any job experience at all. We should keep in mind that there are far more jobs that only require a Bachelor's than a Master's, 166 to 39. Still, I think this is evidence for the hypothesis that some Master's degree jobs could start at a lower salary because their applicants don't necessarily have as much "real world experience" when starting their jobs, though this data certainly does not prove that.
+
+It could also be because there is an outlier bringing down the average. In office hours this week we talked about the possibility that teachers have jobs that require a Master's degree but don't get high pay compared to other Master's degree jobs.
+192-
+```{r}
+(require(stringr))
+(require(dplyr))
+
+#Here we use the stringr package and the dplyr package to return the rows that have the word "teach"
+x<-(filter(attainment,str_detect(attainment$Field,ignore.case("teach"))==TRUE))
+(select(x,Masters.degree,Doctoral.or.professional.degree))
+#we see that there are a number of entries, that contain the word "teach" or "teacher" in the job title. Just glancing at the 54 results, we can see that there are high numbers in the columns indicating Master's degree or higher.
+#We can look at some summary statistics about these jobs:
+
+(summary(x))
+#We can see when looking at the Masters degree entries and the Doctoral or professional degree entries, the mean percentage of workers in these jobs who have a Master's degree is 35.48, and the median is almost the same, at 35.60. For Doctoral or professional degrees, the mean is 31.369 and the median is 43.300. In other words roughly 60-70% of teaching jobs require a Master's degree or higher.
+```
+
+Unfortunately, this dataset doesn't break down average starting salaries for each individual profession. But if we assume that teachers get paid less after their Master's degrees than many other professions get paid with just a Bachelor's degree, it could be enough to bring down the average "Master's degree only" starting salary category relative to the "Bachelor's degree only" category. We should also keep in mind that this includes postsecondary educators, meaning college professors, which we can likely assume get paid more than grade school and high school teachers. But we can also assume that there are far more grade school and high school teachers in America than specialized college professors, and the lower salaries of these workers brings the whole category down. Further, it's important to remember that the drop in salary from Bachelor's to Master's degree jobs, while unexpected, is not a large drop; it's only 6%. Therefore it's not completely unreasonable for us to believe that one somewhat large underpaid category (54 entries) could bring down the median starting salary for the category. Again, this is far from conclusive but it might be a possibility.
+
+Something else that stands out to me in this data is the projected job growth from 2012 (when this data is from) through to 2022. These projections are from the US Department of Labor and the US Bureau of Labor Statistics:
+```{r}
+(select(salary, Number.of.jobs.to.be.added.by.2022,percent.of.job.growth ))
+```
+It's staggering to me that 66.4% of the jobs that are expected to be created in America by 2022 require only a high school diploma, or less. If we take the weighted average of what we expect the wages for those jobs to be...
+```{r}
+(((34.9/66.4)*35170)+((31.5/66.4)*(20110)))
+```
+We get only $28,015.58 . 
+If these projections prove to be accurate, they definitely seem to confirm a narrative in the media these days about growing income inequality. Job creation is projected to happen, but a disproportionate amount of these jobs are going to be low wage. Just 21.7% of the jobs projected to be created will require a Bachelor's degree or higher. Over three times more low-wage jobs are projected to be created by 2022 than the much better paying jobs that require at least a Bachelor's degree. Even jobs that require only an Associate's degree are expected to only account for 4.5% of job growth.
+
+Another question we can ask given this data is in regards to the amount of on the job training required for jobs that require different levels of education. My hypothesis would be that jobs that require higher levels of education (at least a Bachelor's degree) would be less likely to require any on the job training. We can answer this question in a way similar to how we compared required work experience and level of education required for a job.
+```{r}
+(require(dplyr))
+highered<-(filter(assignment, Typical.education.needed.for.entry=="Bachelor's degree" | Typical.education.needed.for.entry=="Master's degree" | Typical.education.needed.for.entry == "Doctoral or professional degree"))
+(nrow(highered))
+a<-(filter(highered,Typical.on.the.job.training.needed.to.attain.competency.in.the.occupation=="None"))
+(nrow(a))
+b<-(filter(highered,Typical.on.the.job.training.needed.to.attain.competency.in.the.occupation=="Short-term on-the-job training"))
+(nrow(b))
+c<-(filter(highered,Typical.on.the.job.training.needed.to.attain.competency.in.the.occupation=="Moderate-term on-the-job training"))
+(nrow(c))
+d<-(filter(highered,Typical.on.the.job.training.needed.to.attain.competency.in.the.occupation=="Long-term on-the-job training"))
+(nrow(d))
+e<-(filter(highered,Typical.on.the.job.training.needed.to.attain.competency.in.the.occupation=="Apprenticeship"))
+(nrow(e))
+#It's evident here that the vast majority of jobs requiring a bachelor's degree or higher (about 77%) require no on-the-job training at all.
+#Now we can do the same thing for jobs requiring less than a Bachelor's degree.
+lowered<-(filter(assignment, Typical.education.needed.for.entry=="Less than high school" | Typical.education.needed.for.entry=="High school diploma or equivalent" | Typical.education.needed.for.entry == "Associate's degree" | Typical.education.needed.for.entry=="Postsecondary non-degree award"))
+(nrow(lowered))
+h<-filter(lowered,Typical.on.the.job.training.needed.to.attain.competency.in.the.occupation=="None")
+(nrow(h))
+i<-filter(lowered,Typical.on.the.job.training.needed.to.attain.competency.in.the.occupation=="Short-term on-the-job training")
+(nrow(i))
+j<-filter(lowered,Typical.on.the.job.training.needed.to.attain.competency.in.the.occupation=="Moderate-term on-the-job training")
+(nrow(j))
+k<-filter(lowered,Typical.on.the.job.training.needed.to.attain.competency.in.the.occupation=="Long-term on-the-job training")
+nrow(k)
+l<-filter(lowered,Typical.on.the.job.training.needed.to.attain.competency.in.the.occupation=="Apprenticeship")
+(nrow(l))
+#For jobs that typically require less than a Bachelor's degree, only 93/546 or about 17% #require no on-the-job training at all, whereas the remaining 83% require at least some #training (including 15 that require an "Apprenticeship")
+```
+These results confirm my suspicion that jobs typically requiring a higher level of education to get the job don't need as much on-the-job training, which is probably because the training is done at school instead of on-the-job. Jobs requiring less than a Bachelor's degree largely do need some kind of on-the-job training. What are the jobs that don't require a high school diploma or any on-the-job training?
+```{r}
+(select((filter(assignment, assignment[2]=="Less than high school" & assignment[4]=="None")),Field))
+```
+Only hosts/hostesses at restaurants, lounges, and coffee shops, along with models don't need either. 
+And the other end of the spectrum? What are the jobs that require a doctorate/professional degree AND long term on-the-job training?
+```{r}
+(select((filter(assignment, assignment[2]=="Doctoral or professional degree" & assignment[4]=="Long-term on-the-job training")),Field))
+```
+There are none.
+What about jobs that require a doctoral or professional degree and moderate on-the-job training?
+```{r}
+(select((filter(assignment, assignment[2]=="Doctoral or professional degree" & assignment[4]=="Moderate-term on-the-job training")),Field))
+```
+Again, there are none.
+Are there any jobs that require a doctoral or professional degree and even short term on-the-job training?
+```{r}
+(select((filter(assignment, assignment[2]=="Doctoral or professional degree" & assignment[4]=="Short-term on-the-job training")),Field))
+```
+Yes there are. It seems that judges and magistrates require the most education and training of any profession.
+
+There's still a lot more analysis that can be done with this data. Say I want to use R to determine the job with the highest percentage of doctoral or professional degree holders.
+```{r}
+q<-arrange(attainment,desc(Doctoral.or.professional.degree))
+(q$Field[1])
+#According to this, podiatrists are the professon with the highest percentage of doctorals. If we want to see what percentage that is, we can do this:
+(r<-filter(attainment, Field=="Podiatrists"))
+(select(r, Doctoral.or.professional.degree))
+#And we can see that the amount of Podiatrists who have a doctoral degree is 97.3%. Makes you wonder how those other 2.7% got the job!
+```
+
+We can also do a couple quick graphs of the data. For example, if you were wondering if there were a lot of doctorate holders at most jobs, you can plot the density:
+```{r}
+(require(ggplot2))
+(ggplot(attainment,aes(x=Doctoral.or.professional.degree))+geom_density())
+```
+
+This shows that most values for that variable are very low, which in this case means that most jobs have a very low percentage of people with a doctorate. There's a little bump around the 40 or so mark on the x-axis, which is likely for teachers/professors. The small bump at the very end is doctors and researchers.
+
+If we looked at the other end of the spectrum:
+```{r}
+(ggplot(attainment,aes(x=Less.than.high.school.diploma))+geom_density())
+```
+
+We still see that the highest density of jobs don't have very many people of this education level (less than high school diploma) but the curve is not as steep. So there are a few more jobs that have greater numbers of employees without a high school diploma.
+
+```{r}
+(ggplot(attainment,aes(x=Bachelors.degree))+geom_density())
+```
+
+This plot shows that there are even less jobs with very low numbers of Bachelor's degree holders and a lot more with higher numbers of Bachelor's degree holders.
+
+There's so much we can do with this data but none of the data really reveals anything really shocking in my opinion, except for the fact that in some cases, median salary goes down for holders of higher levels of education (i.e. a decrease in median salary from Bachelor's degree holders to Master's degree holders). This data doesn't really provide a good explaination for that, so we have to speculate. The most telling statistic, I think, is the projection of job growth in America being so concentrated around the lower wage jobs, which we probably have globalization to thank for.
