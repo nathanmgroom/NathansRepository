@@ -1,0 +1,223 @@
+---
+title: "Project 1"
+author: "Shipra Ahuja, Nathan Groom, Saheli Kar"
+date: "June 11, 2016"
+output: pdf_document
+---
+
+# Brief Overview of the Recommendation System being built
+
+This system recommends books to the readers. The program makes recommendations to a particular reader based on a small set of sample ratings from that reader and the preferences of other readers in the community.
+
+Our algorithm recommends books for the selected user based on the categories of books which he has rated the highest.
+
+Below is how the algorithm works -
+
+1) Create an empty recommendation matrix. User is represented by each row of the matrix and recommendation is represented by each column of the matrix.
+
+2) Iterate through each user, sort the categories for that user and fetch the recommended books for the preferred category. Books with higher average score will get more preference.
+
+3) Assign the books in the recommendation matrix.
+
+Our recommendation system uses Collaborative Filtering technique.
+
+# Dataset used for designing the recommender system
+
+The first dataset is the books dataset which contains 55 books of different categories. The dataset contains the author name, book title, ISBN number and the two categories the book belongs to.
+
+The second dataset is the ratings dataset which contains the names of 86 individuals along with the ratings they have provided for each of the 55 books.
+
+# Hand-Coded Similarity Function
+
+```{r,warning=FALSE}
+
+# Read the books dataset
+
+books <- read.csv("/users/nathangroom/desktop/books.csv",header=TRUE)
+
+dim(books)
+
+# Read the ratings dataset
+
+ratings <- read.csv("/users/nathangroom/desktop/Ratings.csv",header=FALSE)
+
+dim(ratings)
+
+books_num<-nrow(books)
+
+ #Add column names as ISBN of the books
+ names(ratings)<-c("User", as.character(books$ISBN))
+
+ #Get the average rating of each book
+ books=as.data.frame(cbind(books, avg_score=unname(mapply(mean, ratings[,2:(books_num+1)]))))
+
+ readers=ratings[,1]
+ categories<-unique(books$Category1)
+
+ # Matrix to hold the category preference of users
+ categories_ratings_matrix<-matrix(0,nrow=length(readers), ncol=length(categories),
+                        dimnames=list(readers,categories))
+
+ Authors<- unique(books$Author)
+
+ # Matrix to hold the Athor preference of users
+ Authors_ratings_matrix<-matrix(0,nrow=length(readers), ncol=length(Authors),
+                        dimnames=list(readers,Authors))
+
+ for(rownum in (1:nrow(ratings))) {
+
+   for (colNum in (2:(books_num+1))){
+     readerName<-as.character(ratings[rownum,1])
+     if(ratings[rownum,colNum]!=0){
+       Category1<- books[books$ISBN==(names(ratings)[colNum]),]$Category1
+       Category2<- books[books$ISBN==(names(ratings)[colNum]),]$Category2
+       Author<-    books[books$ISBN==(names(ratings)[colNum]),]$Author
+
+       categories_ratings_matrix[readerName, Category1] = categories_ratings_matrix[readerName, Category1]+1
+       categories_ratings_matrix[readerName, Category2] = categories_ratings_matrix[readerName, Category2]+1
+       Authors_ratings_matrix[readerName, Author] = Authors_ratings_matrix[readerName, Author]+1
+
+     }
+   }
+ }
+
+ # Fetch the preferred books for for an user for a particular category
+ 
+ getPreferredBooks<-function(User, Category, booksToFetch){
+   #fetch all the books from the category
+   booksInCategory<-books[books$Category1==Category | books$Category2==Category,c(1:3,6)]
+
+# Sort the books with average score
+   booksInCategory<-booksInCategory[ order(booksInCategory[, "avg_score"], decreasing = TRUE), ]
+
+   # Initialize vector for the books to recommend
+   booksToRecommend<-c()
+   count=as.numeric(booksToFetch)
+
+   for(i in 1:length(booksInCategory)){
+     bookISBN = booksInCategory[i, "ISBN"]
+
+     # Add the book into the recommendation list if the user haven't read it
+     if(ratings[ratings$User==User,bookISBN]==0){
+       recommendBook<- paste0("Title::", booksInCategory[i,"Title"], "; Author::", booksInCategory[i,"Author"],
+                              "; ISBN::", booksInCategory[i,"ISBN"])
+       booksToRecommend<-c(booksToRecommend, recommendBook)
+
+       #Decrease the count by 1 as one book is recommended
+       count=(count-1)
+     }
+
+     # If no more boo to fetch then return the list
+     if(count==0){
+       return(booksToRecommend)
+     }
+   }
+   return(booksToRecommend)
+ }
+
+ # Initialize the empty recommendation matrix
+ reco_matrix<- matrix(NA, nrow = length(readers), ncol = 5 )
+ rownames(reco_matrix)<-as.character(readers)
+
+ # Compute recommendation for all the users
+ for(i in 1:length(readers)){
+   #Get users category preference
+   temp_df <- cbind(Category=colnames(categories_ratings_matrix), Score=categories_ratings_matrix[i,])
+   temp_df<-temp_df[ order(temp_df[, "Score"], decreasing = TRUE), ]
+
+   # Initialize number of books to be recommended
+   booksToFetch=5
+   count=booksToFetch
+
+   # Start with the  ost preferred category
+   Category_index=1
+   selected.category=temp_df[Category_index,1]
+   booksToRecommend<-c()
+   while(booksToFetch>0){
+
+      booksToRecommend<-c(booksToRecommend, getPreferredBooks(as.character(readers[i]), as.character(selected.category), booksToFetch))
+      booksToFetch=booksToFetch-length(booksToRecommend)
+
+      # If the preferred category doesnt have enough book to offer to the reader go for the next category
+      Category_index=Category_index+1
+
+      # If the number of recommended books fetched then stop
+      if(Category_index>length(categories)){
+        break
+      }
+     selected.category=temp_df[Category_index,1]
+
+   }
+
+   booksToRecommend=c(booksToRecommend,rep("",(count-length(booksToRecommend))))
+   # Add the recommended book in the matrix
+   reco_matrix[i,]=rbind(booksToRecommend)
+
+ }
+
+ # Define function to recommend books
+ 
+ getRecommendation<-function(User=NA){
+   if(is.na(User)){
+     return(reco_matrix)
+   }
+   else{
+     return(reco_matrix[User,])
+   }
+ }
+ 
+ # Call function to show recommended books
+ 
+ ## Example 1
+ getRecommendation("Ben")
+ 
+ ## Example 2
+ getRecommendation("Apollo")
+ 
+ ## Example 3
+ getRecommendation("Jim")
+
+```
+
+# Recommendation using the R package
+
+```{r,warning=FALSE}
+
+suppressPackageStartupMessages(library(recommenderlab))
+
+# Get all book names from ratings matrix
+ratings_matrix<-as.matrix(ratings[,2:56])
+
+# Get all user names from ratings dataset and place it as individual rows of column 1 
+rownames(ratings_matrix)<-c(as.character(ratings[,1]))
+
+# Get all books names from books dataset and assign them as column names
+colnames(ratings_matrix)<-as.character(books$Title)
+
+# Convert the matrix as realRatingMatrix to compress it
+r <- as(ratings, "realRatingMatrix")
+
+# Print the real rating matrix list
+#as(r, "list")
+
+# Get unique values of the ratings
+vector_ratings <- as.vector(r@data)
+unique(vector_ratings)
+
+# Group the ratings
+table_ratings <- table(vector_ratings)
+
+# Create recommender system model
+
+reco.model <- Recommender(r[1:nrow(r)],method="UBCF",param=list(normalize = "Z-score",method="Cosine",nn=5, minRating=1))
+
+# Recommend books for all users
+rec.books.reader <- predict(reco.model,r[1:nrow(r)])
+
+# Convert recommended books into list
+rec_list <- as(rec.books.reader, "list")
+
+# Display the recommended books list
+rec_list
+
+```
