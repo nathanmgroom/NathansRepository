@@ -1,0 +1,390 @@
+---
+title: "Project 2"
+author: "Shipra Ahuja, Nathan Groom, Saheli Kar"
+date: "June 24, 2016"
+output: pdf_document
+---
+
+# Introduction
+This project uses book ratings data to implement and configure two different recmmender systems: one using a hybrid collaborative filtering technique taking into account both the genre of the books and their user ratings, the other a content based recommendation system. \newline
+
+# Collaborative Filtering
+
+This function is essentially a hybrid collaborative recommender function which does the following: first, it calculates the overall average rating of each title (as rated by users) from 1-5 and places these ratings in a data frame. We then create an empty recommendation matrix with users as rows and book titles as columns. Finally we fill in the matrix with each user's recommendations, which are the top rated books, not yet read by that user, sorted with that user's preferred genre appearing first.
+
+```{r warning=FALSE}
+
+suppressPackageStartupMessages(library(pROC))
+
+books <- read.csv("/users/nathangroom/desktop/books.csv",header=TRUE)
+ratings <- read.csv("/users/nathangroom/desktop/Ratings.csv",header=FALSE)
+books_num<-nrow(books)
+
+#Add column names as ISBN of the books
+names(ratings)<-c("User", as.character(books$ISBN))
+
+#Get the average rating of each book
+books=as.data.frame(cbind(books, avg_score=unname(mapply(mean, ratings[,2:(books_num+1)]))))
+
+readers=ratings[,1]
+categories<-unique(books$Category1)
+
+# Matrix to hold the category preference of users
+categories_ratings_matrix<-matrix(0,nrow=length(readers), ncol=length(categories), 
+                       dimnames=list(readers,categories))
+
+Authors<- unique(books$Author)
+
+# Matrix to hold the Athor preference of users
+Authors_ratings_matrix<-matrix(0,nrow=length(readers), ncol=length(Authors), 
+                       dimnames=list(readers,Authors))
+
+
+
+
+for(rownum in (1:nrow(ratings))) {
+  
+  for (colNum in (2:(books_num+1))){
+    readerName<-as.character(ratings[rownum,1])
+    if(ratings[rownum,colNum]!=0){
+      Category1<- books[books$ISBN==(names(ratings)[colNum]),]$Category1
+      Category2<- books[books$ISBN==(names(ratings)[colNum]),]$Category2
+      Author<-    books[books$ISBN==(names(ratings)[colNum]),]$Author
+
+      categories_ratings_matrix[readerName, Category1] = categories_ratings_matrix[readerName, Category1]+1
+      categories_ratings_matrix[readerName, Category2] = categories_ratings_matrix[readerName, Category2]+1
+      Authors_ratings_matrix[readerName, Author] = Authors_ratings_matrix[readerName, Author]+1
+      
+    }  
+  }
+}
+
+categories_ratings_matrix=categories_ratings_matrix/rowSums(categories_ratings_matrix)
+
+#Fetch the preferred books for for an user for a particular category 
+getPreferredBooks<-function(User, Category, booksToFetch){
+  #fetch all the books from the category
+  booksInCategory<-books[books$Category1==Category | books$Category2==Category,c(1:3,6)]
+  
+  #Sort the books with average score
+  booksInCategory<-booksInCategory[ order(booksInCategory[, "avg_score"], decreasing = TRUE), ]
+  
+  #Initialize vector for the books to recommend
+  booksToRecommend<-c()
+  count=as.numeric(booksToFetch)
+  
+  for(i in 1:length(booksInCategory)){
+    bookISBN = booksInCategory[i, "ISBN"]
+    
+    #Add the book into the recommendation list if the user haven't read it
+    if(ratings[ratings$User==User,bookISBN]==0){
+      recommendBook<- paste0("Title::", booksInCategory[i,"Title"], "; Author::", booksInCategory[i,"Author"],
+                             "; ISBN::", booksInCategory[i,"ISBN"])
+      booksToRecommend<-c(booksToRecommend, recommendBook)
+      
+      #Decrease the count by 1 as one book is recommended
+      count=(count-1)
+    }
+    
+    #If no more boo to fetch then return the list
+    if(count==0){
+      return(booksToRecommend)
+    }
+  }
+  return(booksToRecommend)
+}
+
+#Initialize the empty recommendation matrix
+reco_matrix<- matrix(NA, nrow = length(readers), ncol = 5 )
+rownames(reco_matrix)<-as.character(readers)
+
+#Compute recommendation for all the users
+
+for(i in 1:length(readers)){
+  #Get users category preference
+  temp_df <- cbind(Category=colnames(categories_ratings_matrix), Score=categories_ratings_matrix[i,])
+  temp_df<-temp_df[ order(temp_df[, "Score"], decreasing = TRUE), ]
+  
+  #Initialize number of books to be recommended
+  booksToFetch=5
+  count=booksToFetch
+  
+  #Start with the  ost preferred category
+  Category_index=1
+  selected.category=temp_df[Category_index,1]
+  booksToRecommend<-c()
+  while(booksToFetch>0){
+    
+     booksToRecommend<-c(booksToRecommend, getPreferredBooks(as.character(readers[i]), as.character(selected.category), booksToFetch))
+     booksToFetch=booksToFetch-length(booksToRecommend)
+
+     #if the preferred category doesnt have enough book to offer to the reader go for the next category
+     Category_index=Category_index+1
+     
+     # If the number of recommended books fetched then stop
+     if(Category_index>length(categories)){
+       break
+     }
+    selected.category=temp_df[Category_index,1]
+
+  }
+
+  booksToRecommend=c(booksToRecommend,rep("",(count-length(booksToRecommend))))
+  #Add the recommended book in the matrix
+  reco_matrix[i,]=rbind(booksToRecommend)
+  
+}
+
+getRecommendation<-function(User=NA){
+  if(is.na(User)){
+    return(reco_matrix)
+  }
+  else{
+    return(reco_matrix[User,])
+  }
+}
+
+```
+
+### Recommending five books for each user
+
+```{r,warning=FALSE}
+
+head(getRecommendation())
+
+```
+
+```{r,warning=FALSE}
+
+collaborative_reco_matrix<-matrix(NA, nrow=86, ncol=55)
+
+for(i in 1:55){
+  collaborative_reco_matrix[,i]<-books[i,]$avg_score
+}
+
+```
+
+
+
+## ROC plot for Collaborative filtering
+
+```{r,warning=FALSE}
+
+ratings.binary<- unlist(ratings[,2:56])
+reco.binary<-as.numeric(collaborative_reco_matrix)
+rocCurve<-roc(response=ratings.binary,predictor=reco.binary,threshhold=2)
+plot(rocCurve, legacy.axes = TRUE)
+
+```
+
+
+### Evaluation metrics for collaborative filtering
+```{r}
+suppressPackageStartupMessages(library(recommenderlab))
+
+r <- as((collaborative_reco_matrix), "realRatingMatrix")
+
+# Create 90/10 split into training/test datasets
+eval <- evaluationScheme(r[1:85,], method="split", train=0.9, 
+                      k=1, given=9)
+
+# Create a UBCF recommender system using training data
+r <- Recommender(getData(eval, "train"), "UBCF")
+
+# Create predictions for test data using known ratings
+pred <- predict(r, getData(eval, "known"), type="ratings")
+
+# Compute the average metrics for all readers - RMSE, MSE, MAE
+calcPredictionAccuracy(pred, getData(eval, "unknown"),given=85,goodRating=5, byuser=FALSE)
+```
+
+# Content Based Filtering
+
+This recommendation system is content based and provides recommendations by normalizing each user's ratings. The algorithm is recommending items for each user that are similar to its past purchases.
+
+```{r warning=FALSE}
+
+Category_books_count<- matrix(0, nrow=length(categories), ncol=1)
+rownames(Category_books_count)<- categories
+
+for(i in 1:nrow(books)){
+  Category1 = books[i,]$Category1
+  Category2 = books[i,]$Category2
+  Category_books_count[Category1,1] = Category_books_count[Category1,1]+1
+  Category_books_count[Category2,1] = Category_books_count[Category2,1]+1
+}
+
+
+books_profile<- matrix(NA, nrow = length(books$ISBN), ncol = length(categories))
+rownames(books_profile)<- as.character(books$ISBN)
+colnames(books_profile)<- as.character(categories)
+
+idf<- log(nrow(books)/Category_books_count)
+
+for(i in 1:nrow(books_profile)){
+  for(j in 1: ncol(books_profile)){
+    category1<-as.character(books[i,"Category1"])
+    category2<-as.character(books[i,"Category2"])
+    idf1=0
+    idf2=0
+    if(as.character(categories[j])==category1){
+      idf1<-idf[category1,]
+    }
+    if(as.character(categories[j])==category2){
+      idf1<-idf[category2,]
+    }
+    books_profile[i,j]<- books[i,"avg_score"]*(idf1+idf2)
+    
+  }
+}
+
+avg_rating_by_user = mean(unlist(ratings[,2:56]))
+
+user_profile<-matrix(0, nrow = nrow(ratings), ncol = nrow(books))
+rownames(user_profile)<- ratings[,1]
+colnames(user_profile)<- books$ISBN
+
+user_profile<- t(as.matrix(ratings[, 2:56]- avg_rating_by_user))
+books_profile = rowSums(books_profile)
+
+rec_profile<- user_profile+books_profile
+rec_profile[rec_profile>5]=5
+
+
+```
+
+### Predcition of ratings by Ben Using Contenet Base Filtering
+
+```{r}
+rec_profile[1,]
+```
+
+## ROC plot for content based filtering
+```{r}
+
+ratings.binary<- unlist(ratings[,2:56])
+reco.binary<-as.numeric(rec_profile)
+rocCurve<-roc(response=ratings.binary,predictor=reco.binary,threshhold=2)
+plot(rocCurve, legacy.axes = TRUE)
+```
+
+### Evaluation metrics for content base filtering
+```{r}
+r <- as(t(rec_profile), "realRatingMatrix")
+
+# Create 90/10 split into training/test datasets
+eval <- evaluationScheme(r[1:85,], method="split", train=0.9, 
+                      k=1, given=9)
+
+# Create a UBCF recommender system using training data
+r <- Recommender(getData(eval, "train"), "UBCF")
+
+# Create predictions for test data using known ratings
+pred <- predict(r, getData(eval, "known"), type="ratings")
+
+# Compute the average metrics for all readers - RMSE, MSE, MAE
+calcPredictionAccuracy(pred, getData(eval, "unknown"),given=85,goodRating=5, byuser=FALSE)
+```
+
+
+## Recommendation using recommenderlab package for UBCF filtering
+
+```{r,warning=FALSE}
+
+
+# Get all book names from ratings matrix
+ratings_matrix<-as.matrix(ratings[,2:56])
+
+# Get all user names from ratings dataset and place it as individual rows of column 1 
+rownames(ratings_matrix)<-c(as.character(ratings[,1]))
+
+# Get all books names from books dataset and assign them as column names
+colnames(ratings_matrix)<-as.character(books$Title)
+
+# Convert the matrix as realRatingMatrix to compress it
+r <- as(ratings, "realRatingMatrix")
+
+# Get unique values of the ratings
+vector_ratings <- as.vector(r@data)
+unique(vector_ratings)
+
+# Group the ratings
+table_ratings <- table(vector_ratings)
+
+# Create recommender system model
+
+reco.model <- Recommender(r[1:nrow(r)],method="UBCF",param=list(method="Cosine",k=30))
+
+# Recommend books for all users
+books.pred <- predict(reco.model,r[1:nrow(r)],n=5)
+
+rec_matrix <- sapply(books.pred@items,function(x){
+  
+  colnames(ratings_matrix)[x]
+})
+  
+head(rec_matrix)
+
+
+```
+
+
+
+## EVALUATION OF UBCF RECOMMENDER SYSTEM
+
+### Metrics for User Based Collaborative Filtering System
+
+The Root Mean Square Error, Mean Absolute Error and and Mean Square Error have been computed for the UBCF recommendaton system. 
+
+### Compute RMSE, MAE, MSE
+
+```{r,warning=FALSE}
+
+# Create real rating matrix
+
+r <- as(ratings_matrix, "realRatingMatrix")
+
+# Create 90/10 split into training/test datasets
+eval <- evaluationScheme(r[1:85,], method="split", train=0.9, 
+                      k=1, given=9)
+
+# Create a UBCF recommender system using training data
+r <- Recommender(getData(eval, "train"), "UBCF")
+
+# Create predictions for test data using known ratings
+pred <- predict(r, getData(eval, "known"), type="ratings")
+
+# Compute the average metrics for all readers - RMSE, MSE, MAE
+calcPredictionAccuracy(pred, getData(eval, "unknown"),given=85,goodRating=5, byuser=FALSE)
+
+```
+
+
+## Compute confusion matrix
+
+```{r,warning=FALSE}
+
+r <- as(ratings_matrix, "realRatingMatrix")
+
+eval <- evaluationScheme(r[1:85,], method="split", train=0.9, 
+                         k=1, given=9, goodRating=5)
+
+results <- evaluate(eval,method="UBCF",n=seq(10,80,10))
+
+getConfusionMatrix(results)
+
+```
+
+
+
+### Plot ROC and Precision-Recall Curves
+
+```{r,warning=FALSE}
+
+# Plot ROC Curve
+plot(results,annotate=TRUE,main="ROC Curve")
+
+# Plot Precision-Recall Curve
+plot(results, "prec/rec", annotate = TRUE, main = "Precision-recall")
+
+```
